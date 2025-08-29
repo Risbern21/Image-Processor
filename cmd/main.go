@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"images/cmd/app"
+	"images/internal/database"
 	"log"
 )
 
 func main() {
 	app.SetUp()
+	database.Connect()
 
 	app := app.New()
 
