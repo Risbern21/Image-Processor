@@ -14,7 +14,7 @@ func Client() *gorm.DB {
 }
 
 func Connect() {
-	dsn := "user=postgres password=Nrebsir21q database=postgres sslmode=disable"
+	dsn := "user=postgres password=postgres database=postgres sslmode=disable"
 
 	var err error
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
