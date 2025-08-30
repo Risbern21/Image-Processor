@@ -8,9 +8,9 @@ import (
 )
 
 type Users struct {
-	ID    uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
-	Name  string    `gorm:"not null"                             json:"name"`
-	Email string    `gorm:"unique;not null"                      json:"email"`
+	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
+	Username string    `gorm:"not null"                             json:"username"`
+	Email    string    `gorm:"unique;not null"                      json:"email"`
 }
 
 func New() *Users {

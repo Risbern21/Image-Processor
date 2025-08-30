@@ -2,7 +2,7 @@ package users
 
 import (
 	"errors"
-	"fmt"
+	"images/internal/dto"
 	users "images/models/users"
 
 	"github.com/gofiber/fiber/v2"
@@ -13,14 +13,16 @@ import (
 func Create(c *fiber.Ctx) error {
 	m := users.New()
 
-	if err := c.BodyParser(&m); err != nil {
+	var user dto.User
+
+	if err := c.BodyParser(&user); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON("invalid input body")
 	}
 
+	m.Username = user.Username
+	m.Email = user.Email
+
 	if err := m.Create(c); err != nil {
-
-		fmt.Println(err)
-
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return c.Status(fiber.StatusBadRequest).
 				JSON("this email is already registered")
@@ -63,12 +65,15 @@ func Update(c *fiber.Ctx) error {
 	}
 
 	m := users.New()
+	var user dto.User
 
-	if err := c.BodyParser(&m); err != nil {
+	if err := c.BodyParser(&user); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON("invalid input body")
 	}
 
 	m.ID = userID
+	m.Username = user.Username
+	m.Email = user.Email
 
 	if err := m.Update(c); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
