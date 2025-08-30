@@ -3,7 +3,7 @@ package users
 import (
 	"errors"
 	"fmt"
-	users "images/models"
+	users "images/models/users"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"

@@ -2,9 +2,10 @@ package config
 
 import (
 	"images/internal/database"
-	users "images/models"
+	"images/models/images"
+	users "images/models/users"
 )
 
 func AutoMigrate() {
-	database.Client().AutoMigrate(&users.Users{})
+	database.Client().AutoMigrate(&users.Users{}, &images.Image{})
 }
