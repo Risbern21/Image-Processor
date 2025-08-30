@@ -6,8 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-type ImageDTO struct{}
-
 type Filters struct {
 	Grayscale bool `json:"grayscale"`
 	Sepia     bool `json:"sepia"`
@@ -25,17 +23,29 @@ type Resize struct {
 	Height uint16 `json:"height"`
 }
 
+type Transformations struct {
+	Resize  *Resize  `json:"resize"`
+	Crop    *Crop    `json:"crop"`
+	Rotate  *int16   `json:"rotate"`
+	Format  *string  `json:"format"`
+	Filters *Filters `json:"filters"`
+}
+
+type ImageDTO struct {
+	Resize  Resize  `json:"resize"`
+	Crop    Crop    `json:"crop"`
+	Rotate  int16   `json:"rotate"`
+	Format  string  `json:"format"`
+	Filters Filters `json:"filters"`
+}
+
 type Image struct {
-	ID        uint       `json:"id"`
-	UserID    uuid.UUID  `json:"user_id:"`
-	URL       string     `json:"url"`
-	Resize    *Resize    `json:"resize"`
-	Crop      *Crop      `json:"crop"`
-	Rotate    *int16     `json:"rotate"`
-	Format    *string    `json:"format"`
-	Filters   *Filters   `json:"filters"`
-	CreatedAt *time.Time `json:"created_at,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+	ID              uint             `json:"id"`
+	UserID          uuid.UUID        `json:"user_id:"`
+	URL             string           `json:"url"`
+	Transformations *Transformations `json:"Transformations,omitempty"`
+	CreatedAt       *time.Time       `json:"created_at,omitempty"`
+	UpdatedAt       *time.Time       `json:"updated_at,omitempty"`
 }
 
 type Images struct {

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"images/internal/cache"
 	"images/internal/config"
 	"images/internal/database"
 	"images/internal/server"
@@ -10,6 +11,9 @@ import (
 func SetUp() {
 	database.Connect()
 	config.AutoMigrate()
+
+	cache.Connect()
+
 	server.SetUp()
 
 	app := server.New()

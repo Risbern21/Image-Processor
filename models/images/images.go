@@ -27,15 +27,19 @@ type Resize struct {
 	Height uint16 `json:"height"`
 }
 
+type Transformations struct {
+	Resize  Resize  `json:"resize"`
+	Crop    Crop    `json:"crop"`
+	Rotate  int16   `json:"rotate"`
+	Format  string  `json:"format"`
+	Filters Filters `json:"filters"`
+}
+
 type Image struct {
 	gorm.Model
-	UserID  uuid.UUID `gorm:"not null;type:uuid" json:"user_id"`
-	URL     string    `gorm:"not null"           json:"url"`
-	Resize  Resize    `                          json:"resize"`
-	Crop    Crop      `                          json:"crop"`
-	Rotate  int16     `                          json:"rotate"`
-	Format  string    `                          json:"format"`
-	Filters Filters   `                          json:"filters"`
+	UserID          uuid.UUID       `gorm:"not null;type:uuid" json:"user_id"`
+	URL             string          `gorm:"not null"           json:"url"`
+	Transformations Transformations `                          json:"transformations"`
 
 	User users.Users `gorm:"foreignKey:UserID;references:ID" json:"-"`
 
