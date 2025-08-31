@@ -10,36 +10,10 @@ import (
 	"gorm.io/gorm"
 )
 
-type Filters struct {
-	Grayscale bool `json:"grayscale"`
-	Sepia     bool `json:"sepia"`
-}
-
-type Crop struct {
-	Width  uint16 `json:"width"`
-	Height uint16 `json:"height"`
-	X      int16  `json:"x"`
-	Y      int16  `json:"y"`
-}
-
-type Resize struct {
-	Width  uint16 `json:"width"`
-	Height uint16 `json:"height"`
-}
-
-type Transformations struct {
-	Resize  Resize  `json:"resize"`
-	Crop    Crop    `json:"crop"`
-	Rotate  int16   `json:"rotate"`
-	Format  string  `json:"format"`
-	Filters Filters `json:"filters"`
-}
-
 type Image struct {
 	gorm.Model
-	UserID          uuid.UUID       `gorm:"not null;type:uuid" json:"user_id"`
-	URL             string          `gorm:"not null"           json:"url"`
-	Transformations Transformations `                          json:"transformations"`
+	UserID uuid.UUID `gorm:"not null;type:uuid" json:"user_id"`
+	URL    string    `gorm:"not null"           json:"url"`
 
 	User users.Users `gorm:"foreignKey:UserID;references:ID" json:"-"`
 
@@ -60,7 +34,7 @@ func (i *Image) Create(c context.Context) error {
 }
 
 func (i *Image) GetByID(c context.Context) error {
-	if err := database.Client().Where("user_id=?", i.UserID).First(i, i.ID); err != nil {
+	if err := database.Client().Where("user_id=?", i.UserID).First(i.Image, i.ID); err != nil {
 		return err.Error
 	}
 	return nil
@@ -85,4 +59,35 @@ func (i *Image) Delete(c context.Context) error {
 		return err.Error
 	}
 	return nil
+}
+
+type Filters struct {
+	Grayscale bool `json:"grayscale"`
+	Sepia     bool `json:"sepia"`
+}
+
+type Crop struct {
+	Width  uint16 `json:"width"`
+	Height uint16 `json:"height"`
+	X1     int16  `json:"x1"`
+	Y1     int16  `json:"y1"`
+	X2     int16  `json:"x2"`
+	Y2     int16  `json:"y2"`
+}
+
+type Resize struct {
+	Width  uint16 `json:"width"`
+	Height uint16 `json:"height"`
+}
+
+type Transformations struct {
+	Resize  Resize  `json:"resize"`
+	Crop    Crop    `json:"crop"`
+	Rotate  int16   `json:"rotate"`
+	Format  string  `json:"format"`
+	Filters Filters `json:"filters"`
+}
+
+func NewTransformation() *Transformations {
+	return &Transformations{}
 }

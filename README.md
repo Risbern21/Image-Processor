@@ -4,7 +4,7 @@
 
 ## To clone this repo simply:
 ```
-git clone "github.com/gofiber/fiber/v2"
+git clone ""
 ```
 
 ## Features it provides
