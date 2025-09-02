@@ -30,4 +30,5 @@ func Connect() {
 	if err := sqlDB.Ping(); err != nil {
 		log.Fatalf("unable to ping database : %v", err)
 	}
+	log.Println("successfully connected to the database")
 }

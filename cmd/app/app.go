@@ -6,6 +6,7 @@ import (
 	"images/internal/database"
 	"images/internal/server"
 	"log"
+	"os"
 )
 
 func SetUp() {
@@ -15,6 +16,10 @@ func SetUp() {
 	cache.Connect()
 
 	server.SetUp()
+
+	if err := os.MkdirAll("dest", 0755); err != nil {
+		log.Fatal(err)
+	}
 
 	app := server.New()
 

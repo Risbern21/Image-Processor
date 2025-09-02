@@ -11,6 +11,7 @@ type Users struct {
 	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4()" json:"id"`
 	Username string    `gorm:"not null"                             json:"username"`
 	Email    string    `gorm:"unique;not null"                      json:"email"`
+	Password string    `                                            json:"password"`
 }
 
 func New() *Users {

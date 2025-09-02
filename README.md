@@ -4,7 +4,7 @@
 
 ## To clone this repo simply:
 ```
-git clone ""
+git clone "git@github.com:Risbern21/Image-Processor.git"
 ```
 
 ## Features it provides

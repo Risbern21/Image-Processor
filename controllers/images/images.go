@@ -16,6 +16,8 @@ import (
 func Upload(ctx *fiber.Ctx) error {
 	c := ctx.UserContext()
 
+	i := images.New()
+
 	if form, err := ctx.MultipartForm(); err == nil {
 		file := form.File["file"][0]
 
@@ -23,6 +25,10 @@ func Upload(ctx *fiber.Ctx) error {
 			return ctx.Status(fiber.StatusInternalServerError).
 				JSON("unable to save the image")
 		}
+
+		i.URL = fmt.Sprintf("./assets/%s", file.Filename)
+	} else {
+		return ctx.Status(fiber.StatusBadRequest).JSON("no image file received")
 	}
 
 	uID := ctx.Params("id")
@@ -30,11 +36,17 @@ func Upload(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON("invalid user id")
 	}
+	// check  if user exists
+	u := users.New()
+	u.ID = userID
 
-	m := images.New()
-	m.UserID = userID
+	if err := u.Get(c); err != nil {
+		return ctx.Status(fiber.StatusNotFound).JSON("user not found")
+	}
 
-	if err := m.Create(c); err != nil {
+	i.UserID = userID
+
+	if err := i.Create(c); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
 			return ctx.Status(fiber.StatusBadRequest).
 				JSON("image already exists")
@@ -43,7 +55,7 @@ func Upload(ctx *fiber.Ctx) error {
 			JSON("internal server error")
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(m)
+	return ctx.Status(fiber.StatusCreated).JSON(i)
 }
 
 func Get(ctx *fiber.Ctx) error {
@@ -103,36 +115,6 @@ func GetByID(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(m.Image)
 }
 
-func Edit(ctx *fiber.Ctx) error {
-	c := ctx.UserContext()
-
-	iID := ctx.Params("i_id")
-	imageID, err := strconv.Atoi(iID)
-	if err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON("invalid image id")
-	}
-
-	uID := ctx.Params("id")
-	userID, err := uuid.Parse(uID)
-	if err != nil {
-		return ctx.Status(fiber.StatusBadRequest).JSON("invalid user id")
-	}
-
-	m := images.New()
-	m.ID = uint(imageID)
-	m.UserID = userID
-
-	if err := m.Update(c); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return ctx.Status(fiber.StatusNotFound).JSON("image not found")
-		}
-		return ctx.Status(fiber.StatusInternalServerError).
-			JSON("internal server error")
-	}
-
-	return ctx.SendStatus(fiber.StatusNoContent)
-}
-
 func Delete(ctx *fiber.Ctx) error {
 	c := ctx.UserContext()
 
@@ -188,6 +170,7 @@ func Transform(ctx *fiber.Ctx) error {
 	i := images.New()
 	i.ID = uint(imageID)
 	i.UserID = userID
+	i.Image = &dto.Image{}
 
 	if err := i.GetByID(c); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -203,7 +186,10 @@ func Transform(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusBadRequest).JSON("invalid input body")
 	}
 
-	fmt.Println(transformations)
+	if err := transformations.Transform(c, i.Image.URL); err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).
+			JSON("something went wrong")
+	}
 
 	return ctx.SendStatus(fiber.StatusOK)
 }

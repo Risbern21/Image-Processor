@@ -8,7 +8,7 @@ import (
 
 type UserDTO struct {
 	Username string `json:"username"`
-	Email    string `json:"emila"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 

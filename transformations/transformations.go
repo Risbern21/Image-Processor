@@ -1,4 +1,4 @@
-package utils
+package transformations
 
 import (
 	"fmt"
@@ -13,6 +13,8 @@ import (
 	"github.com/disintegration/imaging"
 	"golang.org/x/image/webp"
 )
+
+const SAVEDIR = "./dest/"
 
 func getFileName(name, ext string) string {
 	return name[:len(name)-len(ext)]
@@ -59,7 +61,7 @@ func decode(ext string, f io.Reader) (image.Image, error) {
 func encode(path, name, ext string, img image.Image) error {
 	switch ext {
 	case ".png":
-		pngFile, err := os.Create(path + "/" + name + "." + ext)
+		pngFile, err := os.Create(path + name + ext)
 		if err != nil {
 			return err
 		}
@@ -71,7 +73,7 @@ func encode(path, name, ext string, img image.Image) error {
 		return nil
 
 	case ".jpg", ".jpeg":
-		jpegFile, err := os.Create(path + "." + ext)
+		jpegFile, err := os.Create(path + name + ext)
 		if err != nil {
 			return err
 		}
@@ -87,37 +89,35 @@ func encode(path, name, ext string, img image.Image) error {
 	}
 }
 
-func ConvertFormat(url, newExt string) (string, error) {
+func ConvertFormat(url, newExt string) error {
 	if !isValidType(newExt) {
-		return "", fmt.Errorf("invalid file format")
+		return fmt.Errorf("invalid file format")
 	}
 
 	var err error
 	output := filepath.Base(url)
 	oldExt := filepath.Ext(output)
-	output = output[0 : len(output)-len(filepath.Ext(output))]
 
 	// open the input file
 	f, err := os.Open(url)
 	if err != nil {
-		return "", fmt.Errorf("unable to open file for reading")
+		return fmt.Errorf("unable to open file for reading")
 	}
 
 	img, err := decode(oldExt, f)
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	if err := encode(url[0:len(url)-len(output+"."+oldExt)], output, newExt, img); err != nil {
-		return "", err
+	if err := encode(SAVEDIR, getFileName(output, oldExt), newExt, img); err != nil {
+		return err
 	}
 
-	return output, nil
+	return nil
 }
 
 func Resize(width, height int, url string) error {
-	output := filepath.Base(url)
-	ext := filepath.Ext(output)
+	output, ext := conv(url)
 
 	f, err := os.Open(url)
 	if err != nil {
@@ -131,7 +131,7 @@ func Resize(width, height int, url string) error {
 	defer f.Close()
 
 	resizedImg := imaging.Resize(img, width, height, imaging.Lanczos)
-	if err := encode("./assets", output+"_resized", ext, resizedImg); err != nil {
+	if err := encode(SAVEDIR, getFileName(output, ext)+"_resized", ext, resizedImg); err != nil {
 		return err
 	}
 
@@ -154,7 +154,7 @@ func Rotate(angle float64, url string) error {
 	defer f.Close()
 
 	rotatedImg := imaging.Rotate(img, angle, nil)
-	if err := encode("./assets", output+"_rotated", ext, rotatedImg); err != nil {
+	if err := encode(SAVEDIR, getFileName(output, ext)+"_rotated", ext, rotatedImg); err != nil {
 		return err
 	}
 
@@ -177,7 +177,7 @@ func Crop(x1, y1, x2, y2 int, url string) error {
 	}
 
 	croppedImg := imaging.Crop(img, image.Rect(x1, y1, x2, y2))
-	if err := encode("./assets", output, ext, croppedImg); err != nil {
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, croppedImg); err != nil {
 		return err
 	}
 	return nil
@@ -224,7 +224,7 @@ func Watermark(x, y int, url1, url2 string) error {
 		draw.Over,
 	)
 
-	if err := encode("./assets", baseImg[:len(baseImg)-len(ext2)]+"_watermarked", ext2, m); err != nil {
+	if err := encode(SAVEDIR, getFileName(baseImg, ext2)+"_watermarked", ext2, m); err != nil {
 		return err
 	}
 	return nil
@@ -256,9 +256,7 @@ func Flip(direction string, url string) error {
 		return fmt.Errorf("invalid flipping directon")
 	}
 
-	fmt.Printf("flipped img:%v\n", flippedImg)
-
-	if err := encode("./assets/", output[:len(output)-len(ext)]+"_flip", ext, flippedImg); err != nil {
+	if err := encode(SAVEDIR, getFileName(output, ext)+"_flip", ext, flippedImg); err != nil {
 		return err
 	}
 
@@ -290,7 +288,7 @@ func MirrorHorizontal(url string) error {
 		}
 	}
 
-	if err := encode("./assets/", output[:len(output)-len(ext)], ext, newImg); err != nil {
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, newImg); err != nil {
 		return err
 	}
 
@@ -322,7 +320,7 @@ func MirrorVertical(url string) error {
 		}
 	}
 
-	if err := encode("./assets/", output[:len(output)-len(ext)], ext, newImg); err != nil {
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, newImg); err != nil {
 		return err
 	}
 
@@ -353,7 +351,7 @@ func Filters(filter, url string) error {
 		return fmt.Errorf("unsupported filter")
 	}
 
-	if err := encode("./assets/", getFileName(output, ext)+"filtered", ext, filteImg); err != nil {
+	if err := encode(SAVEDIR, getFileName(output, ext)+"filtered", ext, filteImg); err != nil {
 		return err
 	}
 

@@ -13,7 +13,6 @@ func Images(r fiber.Router) {
 	imageRoutes.Get("/", images.Get)
 
 	imageRoutes.Get("/:i_id", images.GetByID)
-	imageRoutes.Put("/:i_id", images.Edit)
 	imageRoutes.Delete("/:i_id", images.Delete)
 
 	imageRoutes.Post("/:i_id/transform", images.Transform)

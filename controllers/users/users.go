@@ -15,7 +15,7 @@ func Create(ctx *fiber.Ctx) error {
 
 	m := users.New()
 
-	var user dto.User
+	var user dto.UserDTO
 
 	if err := ctx.BodyParser(&user); err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON("invalid input body")
@@ -23,6 +23,7 @@ func Create(ctx *fiber.Ctx) error {
 
 	m.Username = user.Username
 	m.Email = user.Email
+	m.Password = user.Password
 
 	if err := m.Create(c); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -71,7 +72,7 @@ func Update(ctx *fiber.Ctx) error {
 	}
 
 	m := users.New()
-	var user dto.User
+	var user dto.UserDTO
 
 	if err := ctx.BodyParser(&user); err != nil {
 		return ctx.Status(fiber.StatusBadRequest).JSON("invalid input body")
@@ -80,6 +81,7 @@ func Update(ctx *fiber.Ctx) error {
 	m.ID = userID
 	m.Username = user.Username
 	m.Email = user.Email
+	m.Password = user.Password
 
 	if err := m.Update(c); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
