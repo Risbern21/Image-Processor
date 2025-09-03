@@ -6,6 +6,10 @@ import (
 	"images/internal/dto"
 	"images/models/images"
 	"images/models/users"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -130,6 +134,17 @@ func Delete(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusBadRequest).JSON("invalid user id")
 	}
 
+	u := users.New()
+	u.ID = userID
+
+	if err := u.Get(c); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ctx.Status(fiber.StatusNotFound).JSON("user not found")
+		}
+		return ctx.Status(fiber.StatusInternalServerError).
+			JSON("internal server error")
+	}
+
 	m := images.New()
 	m.ID = uint(imageID)
 	m.UserID = userID
@@ -186,10 +201,85 @@ func Transform(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusBadRequest).JSON("invalid input body")
 	}
 
-	if err := transformations.Transform(c, i.Image.URL); err != nil {
+	destURL, err := transformations.Transform(c, i.Image.URL)
+	if err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).
 			JSON("something went wrong")
 	}
 
-	return ctx.SendStatus(fiber.StatusOK)
+	destImg := images.New()
+	destImg.UserID = userID
+	destImg.URL = "./dest/" + destURL
+
+	if err := destImg.Create(c); err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return ctx.Status(fiber.StatusBadRequest).
+				JSON("image already exists")
+		}
+		return ctx.Status(fiber.StatusInternalServerError).
+			JSON("internal server error unable to create destination image")
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(destImg)
+}
+
+func Download(ctx *fiber.Ctx) error {
+	c := ctx.UserContext()
+
+	imageID, err := strconv.Atoi(ctx.Params("i_id"))
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON("invalid image id")
+	}
+	userID, err := uuid.Parse(ctx.Params("id"))
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON("invalid user id")
+	}
+
+	u := users.New()
+	u.ID = userID
+	if err := u.Get(c); err != nil {
+		return ctx.Status(fiber.StatusNotFound).JSON("user not found")
+	}
+
+	i := images.New()
+	i.ID = uint(imageID)
+	i.UserID = userID
+	i.Image = &dto.Image{}
+	if err := i.GetByID(c); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ctx.Status(fiber.StatusNotFound).JSON("image not found")
+		}
+		return ctx.Status(fiber.StatusInternalServerError).
+			JSON("internal server error")
+	}
+
+	filePath := i.Image.URL
+	fmt.Println(filePath)
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return ctx.Status(fiber.StatusNotFound).JSON("file not found")
+	}
+	defer f.Close()
+
+	// read first 512 bytes to detect content type
+	buffer := make([]byte, 512)
+	_, err = f.Read(buffer)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).
+			JSON("unable to detect file type")
+	}
+	contentType := http.DetectContentType(buffer)
+
+	f.Seek(0, io.SeekStart)
+
+	fileName := filepath.Base(filePath)
+
+	// set headers to send file
+	ctx.Response().Header.Set(
+		"Content-Disposition",
+		"attachment; filename="+fileName,
+	)
+	ctx.Response().Header.Set("Content-Type", contentType)
+	return ctx.SendFile(filePath)
 }

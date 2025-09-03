@@ -16,4 +16,6 @@ func Images(r fiber.Router) {
 	imageRoutes.Delete("/:i_id", images.Delete)
 
 	imageRoutes.Post("/:i_id/transform", images.Transform)
+
+	imageRoutes.Get("/:i_id/download", images.Download)
 }

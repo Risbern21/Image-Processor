@@ -2,6 +2,7 @@ package images
 
 import (
 	"context"
+	"fmt"
 	"images/internal/database"
 	"images/internal/dto"
 	"images/models/users"
@@ -38,6 +39,8 @@ func (i *Image) GetByID(c context.Context) error {
 	if err := database.Client().Where("user_id=?", i.UserID).First(i.Image, i.ID); err != nil {
 		return err.Error
 	}
+	fmt.Println("helllo")
+	fmt.Println(i)
 	return nil
 }
 
@@ -89,68 +92,78 @@ type Transformations struct {
 	Format  *string  `json:"format"`
 	Filters *Filters `json:"filters"`
 	Flip    *string  `json:"flip"`
+	Mirror  *string  `json:"mirror"`
 }
 
 func NewTransformation() *Transformations {
 	return &Transformations{}
 }
 
-func (t *Transformations) Transform(c context.Context, url string) error {
-	// check resize transformations
+func (t *Transformations) Transform(
+	c context.Context,
+	url string,
+) (string, error) {
+	var destUrl string = ""
+	var err error
+
 	if t.Resize != nil {
-		if err := transformations.Resize(t.Resize.Width, t.Resize.Height, url); err != nil {
-			return err
+		if destUrl, err = transformations.Resize(t.Resize.Width, t.Resize.Height, url); err != nil {
+			return "", err
 		}
 	}
 
-	// check crop transformations
 	if t.Crop != nil {
-		if err := transformations.Crop(t.Crop.X1, t.Crop.Y1, t.Crop.X2, t.Crop.Y2, url); err != nil {
-			return err
+		if t.Crop.X2-t.Crop.X1 < 10 || t.Crop.Y2-t.Crop.Y1 < 10 {
+			return "", fmt.Errorf(
+				"cannot crop image into such small proportions",
+			)
+		}
+		if destUrl, err = transformations.Crop(t.Crop.X1, t.Crop.Y1, t.Crop.X2, t.Crop.Y2, url); err != nil {
+			return "", err
 		}
 	}
 
-	// check rotate Transformations
 	if t.Rotate != nil {
-		if err := transformations.Rotate(*t.Rotate, url); err != nil {
-			return err
+		if destUrl, err = transformations.Rotate(*t.Rotate, url); err != nil {
+			return "", err
 		}
 	}
 
-	// check format transformations
 	if t.Format != nil {
-		if err := transformations.ConvertFormat(url, *t.Format); err != nil {
-			return err
+		if destUrl, err = transformations.ConvertFormat(url, *t.Format); err != nil {
+			return "", err
 		}
 	}
 
-	// check filters transformations
 	if t.Filters != nil {
 		if t.Filters.Grayscale {
-			if err := transformations.Filters("grayscale", url); err != nil {
-				return err
+			if destUrl, err = transformations.Filters("grayscale", url); err != nil {
+				return "", err
 			}
 		}
 		if t.Filters.Invert {
-			if err := transformations.Filters("invert", url); err != nil {
-				return err
+			if destUrl, err = transformations.Filters("invert", url); err != nil {
+				return "", err
 			}
 		}
 		if t.Filters.Sepia {
-			if err := transformations.Filters("sepia", url); err != nil {
-				return err
+			if destUrl, err = transformations.Filters("sepia", url); err != nil {
+				return "", err
 			}
 		}
 	}
 
-	// check flip transformations
 	if t.Flip != nil {
-		if err := transformations.Flip(*t.Flip, url); err != nil {
-			return err
+		if destUrl, err = transformations.Flip(*t.Flip, url); err != nil {
+			return "", err
 		}
 	}
 
-	// check
+	if t.Mirror != nil {
+		if destUrl, err = transformations.Mirror(url, *t.Mirror); err != nil {
+			return "", err
+		}
+	}
 
-	return nil
+	return destUrl, nil
 }

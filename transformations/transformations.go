@@ -3,13 +3,14 @@ package transformations
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/jpeg"
 	"image/png"
-	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/disintegration/gift"
 	"github.com/disintegration/imaging"
 	"golang.org/x/image/webp"
 )
@@ -33,7 +34,23 @@ func isValidType(ext string) bool {
 	}
 }
 
-func decode(ext string, f io.Reader) (image.Image, error) {
+func clamp(val float64) float64 {
+	if val > 255 {
+		return 255
+	}
+	if val < 0 {
+		return 0
+	}
+	return val
+}
+
+func openAndDecode(url, ext string) (image.Image, error) {
+	f, err := os.Open(url)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
 	switch ext {
 	case ".webp":
 		img, err := webp.Decode(f)
@@ -89,128 +106,94 @@ func encode(path, name, ext string, img image.Image) error {
 	}
 }
 
-func ConvertFormat(url, newExt string) error {
+func ConvertFormat(url, newExt string) (string, error) {
 	if !isValidType(newExt) {
-		return fmt.Errorf("invalid file format")
+		return "", fmt.Errorf("invalid file format")
 	}
 
 	var err error
 	output := filepath.Base(url)
 	oldExt := filepath.Ext(output)
 
-	// open the input file
-	f, err := os.Open(url)
+	img, err := openAndDecode(url, oldExt)
 	if err != nil {
-		return fmt.Errorf("unable to open file for reading")
-	}
-
-	img, err := decode(oldExt, f)
-	if err != nil {
-		return err
+		return "", err
 	}
 
 	if err := encode(SAVEDIR, getFileName(output, oldExt), newExt, img); err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return getFileName(output, newExt) + newExt, nil
 }
 
-func Resize(width, height int, url string) error {
+func Resize(width, height int, url string) (string, error) {
 	output, ext := conv(url)
 
-	f, err := os.Open(url)
+	img, err := openAndDecode(url, ext)
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	img, err := decode(ext, f)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
 
 	resizedImg := imaging.Resize(img, width, height, imaging.Lanczos)
-	if err := encode(SAVEDIR, getFileName(output, ext)+"_resized", ext, resizedImg); err != nil {
-		return err
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, resizedImg); err != nil {
+		return "", err
 	}
 
-	return nil
+	return output, nil
 }
 
-func Rotate(angle float64, url string) error {
+func Rotate(angle float64, url string) (string, error) {
 	output := filepath.Base(url)
 	ext := filepath.Ext(output)
 
-	f, err := os.Open(url)
+	img, err := openAndDecode(url, ext)
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	img, err := decode(ext, f)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
 
 	rotatedImg := imaging.Rotate(img, angle, nil)
-	if err := encode(SAVEDIR, getFileName(output, ext)+"_rotated", ext, rotatedImg); err != nil {
-		return err
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, rotatedImg); err != nil {
+		return "", err
 	}
 
-	return nil
+	return output, nil
 }
 
-func Crop(x1, y1, x2, y2 int, url string) error {
+func Crop(x1, y1, x2, y2 int, url string) (string, error) {
 	output := filepath.Base(url)
 	ext := filepath.Ext(output)
 
-	f, err := os.Open(url)
+	img, err := openAndDecode(url, ext)
 	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	img, err := decode(ext, f)
-	if err != nil {
-		return err
+		return "", err
 	}
 
 	croppedImg := imaging.Crop(img, image.Rect(x1, y1, x2, y2))
 	if err := encode(SAVEDIR, getFileName(output, ext), ext, croppedImg); err != nil {
-		return err
+		fmt.Println(err)
+		fmt.Println("inside crop")
+		return "", err
 	}
-	return nil
+	return output, nil
 }
 
-func Watermark(x, y int, url1, url2 string) error {
+func Watermark(x, y int, url1, url2 string) (string, error) {
 	watermarkImg := filepath.Base(url1)
 	ext1 := filepath.Ext(watermarkImg)
 
 	baseImg := filepath.Base(url2)
 	ext2 := filepath.Ext(baseImg)
 
-	// open the watermark image and decode it
-	wmb, err := os.Open(url1)
+	watermark, err := openAndDecode(url1, ext1)
 	if err != nil {
-		return err
+		return "", err
 	}
-	watermark, err := decode(ext1, wmb)
-	if err != nil {
-		return err
-	}
-	defer wmb.Close()
 
-	// open the base image and decode it
-	imgb, err := os.Open(url2)
+	img, err := openAndDecode(url2, ext2)
 	if err != nil {
-		return err
+		return "", err
 	}
-	img, err := decode(ext2, imgb)
-	if err != nil {
-		return err
-	}
-	defer imgb.Close()
 
 	offset := image.Pt(x, y)
 	b := img.Bounds()
@@ -224,25 +207,19 @@ func Watermark(x, y int, url1, url2 string) error {
 		draw.Over,
 	)
 
-	if err := encode(SAVEDIR, getFileName(baseImg, ext2)+"_watermarked", ext2, m); err != nil {
-		return err
+	if err := encode(SAVEDIR, getFileName(baseImg, ext2), ext2, m); err != nil {
+		return "", err
 	}
-	return nil
+	return baseImg, nil
 }
 
-func Flip(direction string, url string) error {
+func Flip(direction string, url string) (string, error) {
 	output := filepath.Base(url)
 	ext := filepath.Ext(output)
 
-	f, err := os.Open(url)
+	img, err := openAndDecode(url, ext)
 	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	img, err := decode(ext, f)
-	if err != nil {
-		return err
+		return "", err
 	}
 
 	// check  if it works otherwise try image.NewRGBA
@@ -253,107 +230,100 @@ func Flip(direction string, url string) error {
 	case "vertical":
 		flippedImg = imaging.FlipV(img)
 	default:
-		return fmt.Errorf("invalid flipping directon")
+		return "", fmt.Errorf("invalid flipping directon")
 	}
 
-	if err := encode(SAVEDIR, getFileName(output, ext)+"_flip", ext, flippedImg); err != nil {
-		return err
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, flippedImg); err != nil {
+		return "", err
 	}
 
-	return nil
+	return output, nil
 }
 
-func MirrorHorizontal(url string) error {
+func Mirror(url, direction string) (string, error) {
 	output := filepath.Base(url)
 	ext := filepath.Ext(url)
 
-	f, err := os.Open(url)
+	img, err := openAndDecode(url, ext)
 	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	img, err := decode(ext, f)
-	if err != nil {
-		return err
+		return "", err
 	}
 
-	bounds := img.Bounds()
-	width, height := bounds.Max.X, bounds.Max.Y
-	newImg := image.NewRGBA(bounds)
-
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			newImg.Set(x, y, newImg.At(width-1-x, y))
-		}
+	var dst *image.RGBA
+	switch direction {
+	case "horizontal":
+		g := gift.New(gift.FlipHorizontal())
+		dst = image.NewRGBA(g.Bounds(img.Bounds()))
+		g.Draw(dst, img)
+	case "vertical":
+		g := gift.New(gift.FlipVertical())
+		dst = image.NewRGBA(g.Bounds(img.Bounds()))
+		g.Draw(dst, img)
+	default:
+		return "", fmt.Errorf("invalid flip direction")
 	}
 
-	if err := encode(SAVEDIR, getFileName(output, ext), ext, newImg); err != nil {
-		return err
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, dst); err != nil {
+		return "", err
 	}
 
-	return nil
+	return output, nil
 }
 
-func MirrorVertical(url string) error {
-	output := filepath.Base(url)
-	ext := filepath.Ext(url)
-
-	f, err := os.Open(url)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	img, err := decode(ext, f)
-	if err != nil {
-		return err
-	}
-
+func sepiaConv(img image.Image) *image.NRGBA {
 	bounds := img.Bounds()
-	width, height := bounds.Max.X, bounds.Max.Y
-	newImg := image.NewRGBA(bounds)
+	sepiaImage := image.NewNRGBA(bounds)
 
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
-			newImg.Set(x, y, newImg.At(x, height-1-y))
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			originalColor := img.At(x, y)
+			r, g, b, a := originalColor.RGBA()
+
+			originalR := float64(r >> 8)
+			originalG := float64(g >> 8)
+			originalB := float64(b >> 8)
+
+			newRed := 0.393*originalR + 0.769*originalG + 0.189*originalB
+			newGreen := 0.349*originalR + 0.686*originalG + 0.168*originalB
+			newBlue := 0.272*originalR + 0.534*originalG + 0.131*originalB
+
+			newR := uint8(clamp(newRed))
+			newG := uint8(clamp(newGreen))
+			newB := uint8(clamp(newBlue))
+
+			sepiaImage.Set(
+				x,
+				y,
+				color.RGBA{R: newR, G: newG, B: newB, A: uint8(a >> 8)},
+			)
 		}
 	}
-
-	if err := encode(SAVEDIR, getFileName(output, ext), ext, newImg); err != nil {
-		return err
-	}
-
-	return nil
+	return sepiaImage
 }
 
-func Filters(filter, url string) error {
+func Filters(filter, url string) (string, error) {
 	output, ext := conv(url)
 
-	f, err := os.Open(url)
+	img, err := openAndDecode(url, ext)
 	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	img, err := decode(ext, f)
-	if err != nil {
-		return err
+		return "", err
 	}
 
-	filteImg := &image.NRGBA{}
+	filterImg := &image.NRGBA{}
 	switch filter {
 	case "grayscale":
-		filteImg = imaging.Grayscale(img)
+		filterImg = imaging.Grayscale(img)
 	case "invert":
-		filteImg = imaging.Invert(img)
+		filterImg = imaging.Invert(img)
+	case "sepia":
+		filterImg = sepiaConv(img)
 	default:
-		return fmt.Errorf("unsupported filter")
+		return "", fmt.Errorf("unsupported filter")
 	}
 
-	if err := encode(SAVEDIR, getFileName(output, ext)+"filtered", ext, filteImg); err != nil {
-		return err
+	if err := encode(SAVEDIR, getFileName(output, ext), ext, filterImg); err != nil {
+		return "", err
 	}
 
-	return nil
+	return output, nil
 }
